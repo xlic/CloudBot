@@ -146,6 +146,58 @@ def get_quote_by_chan(db, chan, num=False):
     return format_quote(data, num, count)
 
 
+find_re = re.compile(r"(?:(#\S+)\s+)?(\S+)\s+(.*)$")
+@hook.command('findquote')
+def find_quote(event, db, text):
+    """[#chan] [nick] <to match> OR [nick] <to match> - get the first quote matching <to match> by [nick] in [#chan]"""
+
+    errstr = "No quotes found"
+    find = find_re.match(text)
+    if not find:
+        event.notice_doc()
+        return
+
+    chan, nick, to_match_raw = find.groups()
+    to_match = to_match_raw
+    to_match = to_match.replace("%", "\%")
+    to_match = to_match.replace("_", "\_")
+    to_match = to_match.replace("*", "%")
+    to_match = "%" + to_match + "%"
+
+    query = select([qtable.c.time, qtable.c.nick, qtable.c.msg]) \
+        .where(qtable.c.deleted != 1) \
+        .order_by(qtable.c.time)
+
+    if nick:
+        errstr += " for {}".format(nick)
+        query = query.where(qtable.c.nick == nick)
+    if chan:
+        errstr += " in {}".format(chan)
+        query = query.where(qtable.c.chan == chan)
+
+    allquotes = db.execute(query.order_by(qtable.c.time)).fetchall()
+    count = len(allquotes)
+    if count == 0:
+        return errstr + "."
+
+    results = db.execute(query.where(qtable.c.msg.like(to_match)).limit(1)) \
+        .fetchall()
+    if not results:
+        return errstr + " matching \"{}\".".format(to_match_raw)
+
+    data = results[0]
+
+    # SQLite provides no better way to find which quote this is
+    num = 1
+    for q in allquotes:
+        # compare timestamps to assert that they're the same quote
+        if q[0] == data[0]:
+            break
+        num += 1
+
+    return format_quote(data, num, count)
+
+
 @hook.command('q', 'quote')
 def quote(text, nick, chan, db, notice):
     """[#chan] [nick] [#n] OR add <nick> <message> - gets the [#n]th quote by <nick> (defaulting to random)
