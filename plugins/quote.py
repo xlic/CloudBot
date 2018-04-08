@@ -146,7 +146,7 @@ def get_quote_by_chan(db, chan, num=False):
     return format_quote(data, num, count)
 
 
-find_re = re.compile(r"(?:(#\S+)\s+)?(\S+)\s+(.*)$")
+find_re = re.compile(r"(?:(#\S+)\s+)?([^#]\S+)\s+(.*)$")
 @hook.command('findquote')
 def find_quote(event, db, text):
     """[#chan] [nick] <to match> OR [nick] <to match> - get the first quote matching <to match> by [nick] in [#chan]"""
