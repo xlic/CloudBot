@@ -177,14 +177,10 @@ def find_quote(event, db, text):
 
     num = 1
     found = False
-    match_list = to_match.strip("*").split("*")
+    match_list = list(filter(None, to_match.split("*")))
     for q in allquotes:
         i = 0
         for match in match_list:
-            # don't look at empty strings created by things like qu**ry
-            if not match:
-                continue
-
             if match not in q[2][i:]:
                 break
             else:
