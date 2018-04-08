@@ -157,12 +157,7 @@ def find_quote(event, db, text):
         event.notice_doc()
         return
 
-    chan, nick, to_match_raw = find.groups()
-    to_match = to_match_raw
-    to_match = to_match.replace("%", "\%")
-    to_match = to_match.replace("_", "\_")
-    to_match = to_match.replace("*", "%")
-    to_match = "%" + to_match + "%"
+    chan, nick, to_match = find.groups()
 
     query = select([qtable.c.time, qtable.c.nick, qtable.c.msg]) \
         .where(qtable.c.deleted != 1) \
@@ -180,22 +175,34 @@ def find_quote(event, db, text):
     if count == 0:
         return errstr + "."
 
-    results = db.execute(query.where(qtable.c.msg.like(to_match)).limit(1)) \
-        .fetchall()
-    if not results:
-        return errstr + " matching \"{}\".".format(to_match_raw)
-
-    data = results[0]
-
-    # SQLite provides no better way to find which quote this is
     num = 1
+    found = False
+    match_list = to_match.strip("*").split("*")
     for q in allquotes:
-        # compare timestamps to assert that they're the same quote
-        if q[0] == data[0]:
+        i = 0
+        for match in match_list:
+            # don't look at empty strings created by things like qu**ry
+            if not match:
+                continue
+
+            if match not in q[2][i:]:
+                break
+            else:
+                # make sure the wildcards are applied in order by only looking
+                # at the subsequent trailing substrings after each match
+                i += q[2][i:].index(match) + len(match)
+
+            if match is match_list[-1]:
+                found = q
+
+        if found:
             break
         num += 1
 
-    return format_quote(data, num, count)
+    if not found:
+        return errstr + " matching \"{}\".".format(to_match)
+
+    return format_quote(found, num, count)
 
 
 @hook.command('q', 'quote')
